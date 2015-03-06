@@ -1,26 +1,7 @@
 <?php
-require_once '../../config/config.php';
+require_once('../../config/config.php');
 require_once ROOT_PATH.'lib/ajax.class.php';
-require_once ROOT_PATH . 'lib/GCService.php';
-
-$gcService = GCService::instance();
-$gcService->startSession();
-
-/**
- * Replace all null values with an empty string, so that JSON serialization
- * does not show 'null'
- * 
- * @param array $data array of array
- */
-function replaceNullWithBlank(array &$data) {
-	foreach($data as $rowNum => $rowData) {
-		foreach($rowData as $colNum => $item) {
-			if (is_null($item)) {
-				$data[$rowNum][$colNum] = '';
-			}
-		}
-	}
-}
+$ajax = new GCAjax();
 
 if(empty($_REQUEST['qtrelation_id'])) $ajax->error('Undefined qtrelation_id');
 if(empty($_REQUEST['f_key_value'])) $ajax->error('Undefined f_key_value');
@@ -54,6 +35,7 @@ $relationSchema = GCApp::getDataDBSchema($qtRelation['catalog_path']);
 $layerTable = $qtRelation['layer_table'];
 $relationTable = $qtRelation['table_name'];
 
+
 $sql = 'select '.implode(', ', $fieldsName).' from '.$layerSchema.'.'.$layerTable.' as t_0 left join '.$relationSchema.'.'.$relationTable.' as t_'.$qtRelation['qtrelation_id'].'  on t_'.$qtRelation['qtrelation_id'].'.'.$qtRelation['table_field_1'].' = t_0.'.$qtRelation['data_field_1'].' where t_0.'.$qtRelation['data_field_1'].' = :value';
 
 $stmt = $layerDataDb->prepare($sql);
@@ -64,5 +46,5 @@ $results = array(
     'results'=>$stmt->fetchAll(PDO::FETCH_ASSOC)
 );
 
-replaceNullWithBlank($results['results']);
+
 $ajax->success(array('data'=>$results));

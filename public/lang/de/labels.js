@@ -9,7 +9,7 @@ var GC_LABEL = {
 'measureMode':'Messen',
 'redlineMode':'Anmerkungen',
 'queryModeOn':'Suche aktiv',
-'redlineModeOn':'Anmerkungen aktiv',
+'redlineModeOn':'Redline aktiv',
 'measureModeOn':'Messen aktiv',
 'geometryPoint':'Punkte-Box',
 'geometryPointWMS':'Punkte-WMS',

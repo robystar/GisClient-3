@@ -1,12 +1,7 @@
 <?php
-require_once '../../config/config.php';
-require_once ROOT_PATH.'lib/ajax.class.php';
-require_once ROOT_PATH.'lib/export.php';
-require_once ROOT_PATH . 'lib/GCService.php';
-
-$gcService = GCService::instance();
-$gcService->startSession();
-
+require_once('../../config/config.php');
+require_once(ROOT_PATH.'lib/ajax.class.php');
+require_once(ROOT_PATH.'lib/export.php');
 $ajax = new GCAjax();
 $db = GCApp::getDB();
 
@@ -35,8 +30,7 @@ $assign = array(
         'rows'=>array(
         
         )
-    ),
-    'intersection_groups'=>array()
+    )
 );
 
 // creo una lista di gruppi da usare per raggruppare le features
@@ -105,9 +99,6 @@ unset($feature);
 $minIntersectionArea = !empty($docOptions['minIntersectionArea']) ? (float)$docOptions['minIntersectionArea'] : 0;
 
 foreach($_REQUEST['intersections'] as $intersection) {
-	if ($intersection['checked'] == 'false') {
-		continue;
-	}
     $sql = 'select st_area(st_intersection(the_geom, :geom)) / st_area(:geom) as intersection_ratio, '.$intersection['artField'].' as art_field, '.$intersection['descField'].' as desc_field from '.$dbParams['schema'].'.'.$intersection['tableName'].' where st_intersects(the_geom, :geom) ';
     if(!empty($intersection['areaOnly'])) $sql .= ' and st_area(st_intersection(the_geom, :geom)) > '.$minIntersectionArea.' ';
     $intersectStmt = $db->prepare($sql);
@@ -121,37 +112,9 @@ foreach($_REQUEST['intersections'] as $intersection) {
             $assign['arts'][str_replace('.', '_', $result['art_field'])] = ' ';
         }
     }
-    
 }
 
-$groups = array();
-foreach($assign['table']['rows'] as $key => $feature) {
-    foreach($feature['intersections'] as $intersection) {
-        if(!isset($groups[$intersection['intersection_group']])) $groups[$intersection['intersection_group']] = array();
-    }
-}
-
-foreach($groups as $groupName => &$group) {
-    foreach($assign['table']['rows'] as $key => $feature) {
-        $intersections = array();
-        foreach($feature['intersections'] as $intersection) {
-            if($intersection['intersection_group'] == $groupName) {
-                array_push($intersections, $intersection);
-            }
-        }
-        if(!empty($intersections)) {
-            if(!isset($group['features'])) $group['features'] = array();
-            $feature['intersections'] = $intersections;
-            array_push($group['features'], $feature);
-        }
-    }
-}
-unset($group);
-
-$assign['intersection_groups'] = $groups;
-
-
-//file_put_contents('debug.txt', var_export($assign, true));
+file_put_contents('debug.txt', var_export($assign, true));
 
 $tolerance = null;
 $partialText = null;
@@ -218,6 +181,12 @@ if($groupBy) {
     
 $TBS->MergeField('arts', $assign['arts']);
 
+$block1 = array(
+    array('name'=>'art36'),
+    array('name'=>'art37')
+);
+
+
 
 $filename = $docOptions['filename'].rand(0,1000000).'.docx';
 
@@ -225,4 +194,4 @@ $TBS->Show(OPENTBS_FILE, GC_WEB_TMP_DIR.$filename);
 //FINE TBS
 
 
-$ajax->success(array('url'=>GC_WEB_TMP_URL.$filename, 'assign'=>$assign, 'file'=>GC_WEB_TMP_DIR.$filename));
+$ajax->success(array('url'=>GC_WEB_TMP_URL.$filename, 'assign'=>$assign));

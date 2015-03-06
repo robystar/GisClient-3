@@ -80,6 +80,8 @@ class sql_db
 		}
 
 		$this->persistency = $persistency;
+        //var_export(debug_backtrace());
+        //die();
 		$this->db_connect_id = ( $this->persistency ) ? pg_pconnect($this->connect_string) : pg_connect($this->connect_string);
 
 		return ( $this->db_connect_id ) ? $this->db_connect_id : false;
@@ -97,15 +99,15 @@ class sql_db
 			//
 			if( $this->in_transaction )
 			{
-				pg_exec($this->db_connect_id, "COMMIT");
+				@pg_exec($this->db_connect_id, "COMMIT");
 			}
 
 			if( $this->query_result )
 			{
-				pg_freeresult($this->query_result);
+				@pg_freeresult($this->query_result);
 			}
 
-			return pg_close($this->db_connect_id);
+			return @pg_close($this->db_connect_id);
 		}
 		else
 		{
@@ -132,35 +134,36 @@ class sql_db
 			{
 				$this->in_transaction = TRUE;
 
-				if( !pg_query($this->db_connect_id, "BEGIN") )
+				if( !@pg_query($this->db_connect_id, "BEGIN") )
 				{
 					return false;
 				}
 			}
+			//echo "DB" ;print_r($this);
 			
 			if (pg_send_query($this->db_connect_id, $query)){
 				$this->query_result = pg_get_result($this->db_connect_id);
 				$error_code=pg_result_error_field($this->query_result, PGSQL_DIAG_SQLSTATE);
 			}
-			$resultIndex = intval($this->query_result);
+			//$this->query_result = @pg_query($this->db_connect_id, $query);
 			if(!$error_code)
 			{
 				if( $transaction == END_TRANSACTION )
 				{
 					$this->in_transaction = FALSE;
 
-					if( !pg_query($this->db_connect_id, "COMMIT") )
+					if( !@pg_query($this->db_connect_id, "COMMIT") )
 					{
-						pg_query($this->db_connect_id, "ROLLBACK");
+						@pg_query($this->db_connect_id, "ROLLBACK");
 						return false;
 					}
 				}
 
-				$this->last_query_text[$resultIndex] = $query;
-				$this->rownum[$resultIndex] = 0;
+				$this->last_query_text[(int)$this->query_result] = $query;
+				$this->rownum[(int)$this->query_result] = 0;
 
-				unset($this->row[$resultIndex]);
-				unset($this->rowset[$resultIndex]);
+				unset($this->row[(int)$this->query_result]);
+				unset($this->rowset[(int)$this->query_result]);
 
 				return $this->query_result;
 			}
@@ -168,13 +171,13 @@ class sql_db
 			{
 				if( $this->in_transaction )
 				{
-					pg_query($this->db_connect_id, "ROLLBACK");
+					@pg_query($this->db_connect_id, "ROLLBACK");
 				}
 				$this->in_transaction = FALSE;
 				/*pg_send_query($this->db_connect_id, $query);
 				$result = pg_get_result($this->db_connect_id);
 				$code=pg_result_error_field($result, PGSQL_DIAG_SQLSTATE);*/
-				$this->error_message[]=Array("code"=>$error_code,"text"=>pg_result_error($this->query_result),"query"=>$query);
+				$this->error_message[]=Array("code"=>$error_code,"text"=>pg_result_error((int)$this->query_result),"query"=>$query);
 				return false;
 			}
 		}
@@ -184,9 +187,9 @@ class sql_db
 			{
 				$this->in_transaction = FALSE;
 
-				if( !pg_query($this->db_connect_id, "COMMIT") )
+				if( !@pg_query($this->db_connect_id, "COMMIT") )
 				{
-					pg_query($this->db_connect_id, "ROLLBACK");
+					@pg_query($this->db_connect_id, "ROLLBACK");
 					return false;
 				}
 			}
@@ -205,7 +208,7 @@ class sql_db
 			$query_id = $this->query_result;
 		}
 
-		return ( $query_id ) ? pg_numrows($query_id) : false;
+		return ( $query_id ) ? @pg_numrows($query_id) : false;
 	}
 
 	function sql_numfields($query_id = 0)
@@ -215,7 +218,7 @@ class sql_db
 			$query_id = $this->query_result;
 		}
 
-		return ( $query_id ) ? pg_numfields($query_id) : false;
+		return ( $query_id ) ? @pg_numfields($query_id) : false;
 	}
 
 	function sql_fieldname($offset, $query_id = 0)
@@ -225,7 +228,7 @@ class sql_db
 			$query_id = $this->query_result;
 		}
 
-		return ( $query_id ) ? pg_fieldname($query_id, $offset) : false;
+		return ( $query_id ) ? @pg_fieldname($query_id, $offset) : false;
 	}
 
 	function sql_fieldtype($offset, $query_id = 0)
@@ -235,7 +238,7 @@ class sql_db
 			$query_id = $this->query_result;
 		}
 
-		return ( $query_id ) ? pg_fieldtype($query_id, $offset) : false;
+		return ( $query_id ) ? @pg_fieldtype($query_id, $offset) : false;
 	}
 
 	function sql_fetchrow($query_id = 0)
@@ -247,12 +250,11 @@ class sql_db
 
 		if($query_id)
 		{
-			$query_index = intval($query_id);
-			$this->row = pg_fetch_array($query_id, $this->rownum[$query_index]);
+			$this->row = @pg_fetch_array($query_id, $this->rownum[$query_id]);
 
 			if( $this->row )
 			{
-				$this->rownum[$query_index]++;
+				$this->rownum[(int)$query_id]++;
 				return $this->row;
 			}
 		}
@@ -269,15 +271,14 @@ class sql_db
 
 		if( $query_id )
 		{
-			$query_index = intval($query_id);
-			unset($this->rowset[$query_index]);
-			unset($this->row[$query_index]);
-			$this->rownum[$query_index] = 0;
+			unset($this->rowset[(int)$query_id]);
+			unset($this->row[(int)$query_id]);
+			$this->rownum[(int)$query_id] = 0;
 			$result = array();
-			while( $this->rowset = @pg_fetch_array($query_id, $this->rownum[$query_index], PGSQL_ASSOC) )
+			while( $this->rowset = @pg_fetch_array($query_id, $this->rownum[$query_id], PGSQL_ASSOC) )
 			{
 				$result[] = $this->rowset;
-				$this->rownum[$query_index]++;
+				$this->rownum[(int)$query_id]++;
 			}
 
 			return $result;
@@ -290,30 +291,28 @@ class sql_db
 	{
 		if( !$query_id )
 		{
-			$query_id = $this->query_result;
+			$query_id = (int)$this->query_result;
 		}
 
 		if( $query_id )
 		{
-			$query_index = intval($query_id);
-			
 			if( $row_offset != -1 )
 			{
-				$this->row = pg_fetch_array($query_id, $row_offset, PGSQL_ASSOC);
+				$this->row = @pg_fetch_array($query_id, $row_offset, PGSQL_ASSOC);
 			}
 			else
 			{
-				if( !empty($this->rownum[$query_index]) )
+				if( !empty($this->rownum[(int)$query_id]) )
 				{
-					$this->row = pg_fetch_array($query_id, $this->rownum[$query_index]-1, PGSQL_ASSOC);
+					$this->row = @pg_fetch_array($query_id, $this->rownum[(int)$query_id]-1, PGSQL_ASSOC);
 				}
 				else
 				{
-					$this->row = pg_fetch_array($query_id, $this->rownum[$query_index], PGSQL_ASSOC);
+					$this->row = @pg_fetch_array($query_id, $this->rownum[(int)$query_id], PGSQL_ASSOC);
 
 					if( $this->row )
 					{
-						$this->rownum[$query_index]++;
+						$this->rownum[(int)$query_id]++;
 					}
 				}
 			}
@@ -334,11 +333,9 @@ class sql_db
 
 		if( $query_id )
 		{
-			$query_index = intval($query_id);
-			
 			if( $offset > -1 )
 			{
-				$this->rownum[$query_index] = $offset;
+				$this->rownum[$query_id] = $offset;
 				return true;
 			}
 			else
@@ -353,11 +350,10 @@ class sql_db
 	function sql_nextid()
 	{
 		$query_id = $this->query_result;
-		$query_index = intval($query_id);
 
-		if($query_id && $this->last_query_text[$query_index] != "")
+		if($query_id && $this->last_query_text[$query_id] != "")
 		{
-			if( preg_match("/^INSERT[\t\n ]+INTO[\t\n ]+([a-z0-9\_\-.]+)/is", $this->last_query_text[$query_index], $tablename) )
+			if( preg_match("/^INSERT[\t\n ]+INTO[\t\n ]+([a-z0-9\_\-.]+)/is", $this->last_query_text[$query_id], $tablename) )
 			{
 				$query = "SELECT currval('". $tablename[1] . "_id_seq') AS last_value";
 				$temp_q_id =  pg_exec($this->db_connect_id, $query);
@@ -366,7 +362,7 @@ class sql_db
 					return false;
 				}
 
-				$temp_result = pg_fetch_array($temp_q_id, 0, PGSQL_ASSOC);
+				$temp_result = @pg_fetch_array($temp_q_id, 0, PGSQL_ASSOC);
 
 				return ( $temp_result ) ? $temp_result['last_value'] : false;
 			}
@@ -382,7 +378,7 @@ class sql_db
 			$query_id = $this->query_result;
 		}
 
-		return ( $query_id ) ? pg_cmdtuples($query_id) : false;
+		return ( $query_id ) ? @pg_cmdtuples($query_id) : false;
 	}
 
 	function sql_freeresult($query_id = 0)
@@ -392,17 +388,19 @@ class sql_db
 			$query_id = $this->query_result;
 		}
 
-		return ( $query_id ) ? pg_freeresult($query_id) : false;
+		return ( $query_id ) ? @pg_freeresult($query_id) : false;
 	}
 
 	function sql_error($query_id = 0)
 	{
 		if( !$query_id )
 		{
-			$query_id = $this->query_result;
+			$query_id = (int)$this->query_result;
 		}
 
-		$result['message'] = pg_errormessage($this->db_connect_id);
+		$result['message'] = @pg_errormessage($this->db_connect_id);
+		//echo "<p> Errore.<br>".pg_last_error ($this->db_connect_id)."</p>";;
+		//$result['message'] = @pg_result_error ($query_id);
 		$result['code'] = -1;
 
 		return $result;
@@ -429,4 +427,6 @@ class sql_db
 	function quote($dirtyData) {
 		return "'".pg_escape_string($dirtyData)."'";
 	}
-}
+} // class ... db_sql
+
+?>

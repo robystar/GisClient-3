@@ -1,17 +1,14 @@
 <?php
-
+	
+	
 	include_once ADMIN_PATH."lib/tabella_h.class.php";
 	include_once ADMIN_PATH."lib/tabella_v.class.php";
 	include_once ADMIN_PATH."lib/savedata.class.php";
 	include_once ADMIN_PATH."lib/export.php";
+
 	
 	
 	class page{
-		
-		const MODE_VIEW=0;
-		const MODE_LIST=3;
-		const MODE_EDIT=1;
-		const MODE_NEW=2;
 		
 		var $parametri;	// Elenco dei parametri
 		var $tableList;	// Elenco delle tabelle da disegnare
@@ -26,8 +23,6 @@
 		var $notice;
 		var $pageKeys;
 		var $action;
-		private $primary_keys;
-		private $navTreeValues;
 		
 		// Costruttore della classe
 		function page($param=Array()){
@@ -69,7 +64,7 @@
 			return $out;
 		}
 		private function _get_pkey($lev){
-			return $this->primary_keys[$lev];
+			return @$this->primary_keys[$lev];
 		}
 		private function _get_pkey_value($pk){
 			foreach($this->parametri as $k=>$v){
@@ -93,7 +88,8 @@
 			$tmp=array();
 			foreach($this->parametri as $key=>$val){
 				$ris=$this->_get_pkey($key);
-				foreach($ris as $val){
+				for($k=0;$k<count($ris);$k++){
+					$val=$ris[$k];
 					$v=$this->_get_pkey_value($val);
 					if($v)
 						$tmp[$val]=$v;
@@ -105,13 +101,13 @@
 		}
 
 		// Metodo che prende le configurazioni della pagina da Database
-		public function get_conf(){
+		function get_conf(){
                         $sqlParam = array();
 			if(!$this->livello) $lev="root";
 			else
 				$lev=$this->livello;
 				
-			if ($this->mode==self::MODE_VIEW or $this->mode==self::MODE_LIST)
+			if ($this->mode==0 or $this->mode==3)
 				$filter_mode="(mode=0 or mode=3)";
                         else {
                                 $sqlParam[':mode'] = $this->mode;
@@ -151,10 +147,8 @@
 
 			$arr_livelli=$stmt->fetchAll();
 			foreach($arr_livelli as $value){
-				list($lvl_id,$lvl_name)=array_values($value);
-				$this->navTreeValues[$lvl_name] = 'XXX';
-				// list($lvl_id,$lvl_name,$lvl_header)=array_values($value);
-				// see obive FIXME: $this->navTreeValues[$lvl_name]=$lvl_header;
+				list($lvl_id,$lvl_name,$lvl_header)=array_values($value);
+				$this->navTreeValues[$lvl_name]=$lvl_header;
 				$livelli[$lvl_id]=Array("val"=>$lvl_id,"key"=>$lvl_name);
 			}
 			unset($this->tableList);			
@@ -163,6 +157,7 @@
 				$res[$i]["parent_level"]=isset($livelli[$res[$i]["parent_level"]])?$livelli[$res[$i]["parent_level"]]:null;
 				$this->tableList[]=$res[$i];
 			}
+			
 		}
 		
 		//Metodo che scrive il menu di navigazione
@@ -171,6 +166,7 @@
 		}
 		
 		function writeMenuNav(){
+			$mylang = GCAuthor::getLang();
 			$rel_dir = GCAuthor::getTabDir();
 			
 			$tmp=parse_ini_file(ROOT_PATH.$rel_dir.'menu.tab',true);
@@ -215,7 +211,8 @@
 						$stmt = $this->db->prepare($sql);
 						$success = $stmt->execute($sqlParam);
 						if(!$success){
-							print_debug($sql,null,"navtree");
+							print_debug($sql,null,"navtree");	
+
 						}
 						$_row=$stmt->fetch(PDO::FETCH_ASSOC);
 						$navTreeTitle = $_row['val'];
@@ -234,7 +231,7 @@
 		}
 		
 		// Metodo privato che setta i parametri della classe
-		function _get_parameter(array $p){
+		function _get_parameter($p){
 			$m=(!empty($p["mode"]))?($p["mode"]):('view');
 			$this->mode=$this->arr_mode[$m];
 			if (!empty($p["parametri"])){
@@ -247,21 +244,19 @@
 						$this->parametri[$val["key"]]=$val["value"];
 				}
 			}
-
-			if (!empty($p["parametri"]) > 0) {
-				$lastParams = array_keys(array_pop($p["parametri"]));
-				$this->last_livello=array_pop($lastParams);
-			} else {
-				$this->last_livello="project";
-			}
+			
+				
+			$this->last_livello=(!empty($p["parametri"]))?(array_pop(array_keys(array_pop($p["parametri"])))):("project");
 			$this->livello=(!empty($p["livello"]))?($p["livello"]):("");
 			if (!empty($p["azione"])){
 				$this->action=strtolower($p["azione"]);
-				if (in_array($this->action, array("esporta", "esporta test", "importa raster", "importa catalogo"))) {
-					$this->mode=$this->arr_mode["edit"];
-				} elseif (in_array($this->action, array("importa", "wizard wms", "classifica"))) {
-					$this->mode=$this->arr_mode["new"];
-				}
+				if($this->action=="esporta") $this->mode=$this->arr_mode["edit"];
+				if($this->action=="esporta test") $this->mode=$this->arr_mode["edit"];
+				if($this->action=="importa") $this->mode=$this->arr_mode["new"];
+				if($this->action=="importa raster") $this->mode=$this->arr_mode["edit"];
+                if($this->action=="importa catalogo") $this->mode=$this->arr_mode["edit"];
+				if($this->action=="wizard wms") $this->mode=$this->arr_mode["new"];
+				if($this->action=="classifica") $this->mode=$this->arr_mode["new"];
 			}
 		}
 		
@@ -373,7 +368,7 @@
 		
 		//Metodo che scrive il Form in modalit� List  Elenco dei Child
 		
-		private function writeListForm(array $tab,$el,&$prm){
+		private function writeListForm($tab,$el,&$prm){
             $user = new GCUser();
 			switch ($tab["tab_type"]){
 				case 0:	//elenco con molteplici valori (TABELLA H)
@@ -460,7 +455,7 @@
 					$enabled=1;
 					if ($tab["save_data"])
 						include_once ADMIN_PATH."include/".$tab["save_data"].".inc.php";
-
+					print_debug($tab,null,"tab_obj");
 					$tb->set_titolo($tb->FileTitle,"modifica",$prm);
 					
 					$tb->tag=$tab["level"];
@@ -515,7 +510,7 @@
 						$b="modifica";
 						$tb->set_titolo($tb->FileTitle,$b,$prm);
 						$tb->get_titolo($frm);
-						$tb->get_tabella();
+						$tb->tab();
 					}
 					else{
 						$b="nuovo";
@@ -538,22 +533,13 @@
 					}
 					$tb->set_titolo($tb->FileTitle,$button,$prm);
 					$tb->get_titolo($frm);
-					$tb->get_tabella();
+					$tb->tab();
 					break;
 			}
 			echo "<hr>\n";
 		}
-		
-		/**
-		 * Metodo che scrive il formulario in modalita EDIT
-		 * 
-		 * @param array $tab
-		 * @param type $el
-		 * @param type $prm
-		 * 
-		 * @throws RuntimeException
-		 */
-		private function writeEditForm(array $tab,$el,&$prm){
+		//Metodo che scrive il Form in modalita EDIT
+		private function writeEditForm($tab,$el,&$prm){
 			switch ($tab["tab_type"]){
 				case 110:
 					$prm["livello"]=$tab["level"];
@@ -580,6 +566,8 @@
 					$tb->elenco();
 					echo "<hr>$button";
 					echo "</form>";
+					
+					
 					break;
 					
 				case 100: //Tabella H per elencare tutti i valori possibili e quelli selezionati
@@ -776,7 +764,7 @@
 							$btn[]="<input type=\"button\" name=\"azione\" class=\"hexfield\" style=\"width:130px;margin-right:5px;margin-left:5px;\" value=\"Seleziona Status\" onclick=\"javascript:selectAll(this,'status');\">";
 							$btn[]="<input type=\"button\" name=\"azione\" class=\"hexfield\" style=\"width:130px;margin-right:5px;margin-left:5px;\" value=\"Seleziona RefMap\" onclick=\"javascript:selectAll(this,'refmap');\">";
 							break;
-						case "vista_qt_selgroup":
+						case "vista_selgroup":
 							$filtro="project_id=".$this->parametri["project"];
 							$btn[]="<input type=\"submit\" name=\"azione\" class=\"hexfield\" style=\"margin-right:5px;margin-left:5px;\" value=\"Annulla\">";
 							$btn[]="<input type=\"submit\" name=\"azione\" class=\"hexfield\" style=\"margin-right:5px;margin-left:5px;\" value=\"Salva\">";
@@ -812,19 +800,7 @@
 					$tb=new Tabella_h($tab["config_file"].".tab","edit");
 					for($j=0;$j<count($tb->function_param);$j++) $tb->function_param[$j]=$this->parametri[$tb->function_param[$j]];
 					$msg="";
-					
-					// do some basic checks!
-					if (!isset($tab["save_data"])) {
-						throw new RuntimeException("save_data not set in tab");
-					}
-					
-					$includeFile = ADMIN_PATH."include/".$tab["save_data"].".inc.php";
-					if (!file_exists($includeFile)) {
-						throw new RuntimeException("can not find include file for '{$tab["save_data"]}': $includeFile not found");
-					}
-					
-					include_once $includeFile;
-					
+					include_once ADMIN_PATH."include/".$tab["save_data"].".inc.php";
 					for($j=0;$j<count($tb->pkeys);$j++){
 						$prm["pkey[$j]"]=isset($tb->pkeys[$j])?$tb->pkeys[$j]:null;
 						$prm["pkey_value[$j]"]=isset($tb->pkeys[$j])?$this->_get_pkey_value($tb->pkeys[$j]):null;
@@ -846,7 +822,7 @@
 					
 			}	
 		}
-		//Metodo che scrive il Form in modalita NEW
+		//Metodo che scrive il Form in modalit� NEW
 		private function writeNewForm($tab,$el,&$prm){
 			$j=0;
 			foreach($this->pageKeys as $v){
@@ -893,12 +869,12 @@
 					break;
 			}		
 		}
-		
 		// Metodo che costruisce la pagina
-		public function writePage(array $err=Array()){
+		function writePage($err=Array()){
 			
 			//Stampa errori generici e messaggi se ci sono
 			$this->writeMessage($err);
+			//echo "<pre>";print_r($this);echo "</pre>";
 			if(!empty($this->tableList)){
 				/*RECUPERO I DATI DELLA TABELLA PRIMARIA*/
 				$table=new Tabella_v($this->tableList[0]["config_file"].".tab");
@@ -915,13 +891,14 @@
 					
 					$el=@each(@array_reverse($this->parametri,true));
 					$this->_getKey($el["value"]);
+					$filter="";
 					$prm=$this->_get_frm_parameter();
 					//VALORIZZO SE PRESENTI I PARAMETRI DELLE FUNZIONI DI SELECT
 					$tab=$this->tableList[$i];
 					switch ($this->mode){		//IDENTIFICO LA MODALITA DI VISUALIZZAZIONE 0:VIEW --- 1:EDIT --- 2:NEW
 						
-						case self::MODE_VIEW:					// MODALITA VIEW
-						case self::MODE_LIST:					// MODALITA LIST
+						case 0:					//MODALITA VIEW
+						case 3:					// MODALITA LIST
 							if($tab["tab_type"]==1 || $tab["tab_type"]==50) {
 								$this->currentMode='view';
 								$this->writeViewForm($tab,$el,$prm);
@@ -931,7 +908,7 @@
 								$this->writeListForm($tab,$el,$prm);
 							}
 							break;
-						case self::MODE_EDIT:					//MODALITA EDIT
+						case 1:					//MODALITA EDIT
 							$this->currentMode='edit';
 							$prm["modo"]="edit";
 							$prm["livello"]=$tab["level"];
@@ -970,17 +947,16 @@
 									echo "</form>";
 									if(isset($resultForm)) echo $resultForm;
 									break;
-
                                 case "importa catalogo":
                                     include ADMIN_PATH."include/catalog_import.php";
                                     break;
-
 								default:
+									
 									$this->writeEditForm($tab,$el,$prm);
 									break;
 							}
 							break;
-						case self::MODE_NEW:					////MODALITA NEW
+						case 2:					////MODALITA NEW
 							$prm["modo"]="new";
 							$this->currentMode='new';
 							foreach($prm as $key=>$val){
@@ -1023,14 +999,15 @@
 							break;
 						
 					}
-					
+					//if ($action_btn) echo "$action_btn \n";
+					$action_btn="";
 					if($tab["javascript"]){
 						echo "<script>\n\t".$tab["javascript"]."('".$tab["form_name"]."');\n</script> \n";
 					}
 				}
 				$arr_keys=(count($this->parametri))?(array_keys($this->parametri)):(Array());
 				
-				if(($this->mode==self::MODE_VIEW || $this->mode==self::MODE_LIST) && !empty($arr_keys[0])){
+				if(($this->mode==0 || $this->mode==3) && !empty($arr_keys[0])){
 					$tmp=$this->parametri;
 					array_pop($tmp);
 					$arrkeys=array_keys($tmp);
@@ -1051,13 +1028,11 @@
 				echo "<p>Nessun configurazione definita per la pagina</p>";
 			//$this->showTime();
 		}
-		
 		function getTime($str){
 			$tmp=explode(" ",microtime());
 			$t=$tmp[0]+$tmp[1];
 			$this->time[$str]=$t;
 		}
-		
 		function showTime(){
 			print_debug($this->time,null,'TIME');
 		}
@@ -1072,3 +1047,5 @@
 			return false;
 		}
 	}
+	
+?>

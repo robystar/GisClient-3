@@ -43,7 +43,6 @@ class gcFeature{
 	var $srsList;
 	var $srsParams;
 	var $dataTypes;
-    var $forcePrivate = false;
 	
 	private $i18n;
 	
@@ -53,21 +52,21 @@ class gcFeature{
 	}
 
 	function __construct($i18n = null){
-		$this->db = GCApp::getDB();
+        $this->db = GCApp::getDB();
 		$this->i18n = $i18n;
+		$this->msVersion = substr(ms_GetVersionInt(),0,1);
 	}
 
 
-	public function initFeature($layerId){
-        $this->forcePrivate = false;
+	function initFeature($layerId){
 
-		$sqlField = "select qtfield.*,
-			qtrelation.qtrelation_name, qtrelation_id, qtrelationtype_id, data_field_1, data_field_2, data_field_3, table_field_1, table_field_2, table_field_3, table_name, 
-			catalog_path, catalog_url from ".DB_SCHEMA.".qtfield 
-			left join ".DB_SCHEMA.".qtrelation using (layer_id,qtrelation_id) 
+		$sqlField = "select field.*,
+			relation.relation_name, relation_id, relationtype_id, data_field_1, data_field_2, data_field_3, table_field_1, table_field_2, table_field_3, table_name, 
+			catalog_path, catalog_url from ".DB_SCHEMA.".field 
+			left join ".DB_SCHEMA.".relation using (layer_id,relation_id) 
 			left join ".DB_SCHEMA.".catalog using (catalog_id) 
-			where qtfield.layer_id = ? 
-			order by qtfield_order;";
+			where field.layer_id = ? 
+			order by field_order;";
 		print_debug($sqlField,null,'template');
 
 		$stmt = $this->db->prepare($sqlField);
@@ -76,39 +75,39 @@ class gcFeature{
 		$qRelation = array();
 		$qField = array();
 
-        // Costruzione dell'oggetto Feature
+                //Costruzione dell'oggetto Feature
 		while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 		
 			if(!empty($this->i18n)) {
-				$row = $this->i18n->translateRow($row, 'qtfield', $row['qtfield_id'], array('qtfield_name', 'field_header'));
+				$row = $this->i18n->translateRow($row, 'field', $row['field_id'], array('field_name', 'field_header'));
 			}
 		
-			$qtfieldId=$row["qtfield_id"];
-			$qField[$qtfieldId]["field_name"]=trim($row["qtfield_name"]);
-			$qField[$qtfieldId]["formula"]=trim($row["formula"]);
-			$qField[$qtfieldId]["field_title"]=trim($row["field_header"]);
-			$qField[$qtfieldId]["field_type"]=$row["fieldtype_id"];
-			$qField[$qtfieldId]["data_type"]=$row["datatype_id"];			
-			$qField[$qtfieldId]["order_by"]=$row["orderby_id"];
-			$qField[$qtfieldId]["field_format"]=$row["field_format"];
-			$qField[$qtfieldId]["editable"]=$row["editable"];
-			$qField[$qtfieldId]["search_type"]=trim($row["searchtype_id"]);
-			$qField[$qtfieldId]["result_type"]=trim($row["resultype_id"]);
-			$qField[$qtfieldId]["field_filter"]=trim($row["field_filter"]);
-			$qField[$qtfieldId]["search_function"]=(!empty($row["search_function"]))?trim($row["search_function"]):'';
-			$qField[$qtfieldId]["relation"]=$row["qtrelation_id"];
-			$qField[$qtfieldId]["column_width"]=$row["column_width"];
+			$fieldId=$row["field_id"];
+			$qField[$fieldId]["field_name"]=trim($row["field_name"]);
+			$qField[$fieldId]["formula"]=trim($row["formula"]);
+			$qField[$fieldId]["field_title"]=trim($row["field_header"]);
+			$qField[$fieldId]["field_type"]=$row["fieldtype_id"];
+			$qField[$fieldId]["data_type"]=$row["datatype_id"];			
+			$qField[$fieldId]["order_by"]=$row["orderby_id"];
+			$qField[$fieldId]["field_format"]=$row["field_format"];
+			$qField[$fieldId]["editable"]=$row["editable"];
+			$qField[$fieldId]["search_type"]=trim($row["searchtype_id"]);
+			$qField[$fieldId]["result_type"]=trim($row["resultype_id"]);
+			$qField[$fieldId]["field_filter"]=trim($row["field_filter"]);
+			$qField[$fieldId]["search_function"]=(!empty($row["search_function"]))?trim($row["search_function"]):'';
+			$qField[$fieldId]["relation"]=$row["relation_id"];
+			$qField[$fieldId]["column_width"]=$row["column_width"];
 			$f=array();
-			if($qtrelationId=$row["qtrelation_id"]){
+			if($relationId=$row["relation_id"]){
 				if(($row["data_field_1"])&&($row["table_field_1"])) $f[]=array(trim($row["data_field_1"]),trim($row["table_field_1"]));
 				if(($row["data_field_2"])&&($row["table_field_2"])) $f[]=array(trim($row["data_field_2"]),trim($row["table_field_2"]));
 				if(($row["data_field_3"])&&($row["table_field_3"])) $f[]=array(trim($row["data_field_3"]),trim($row["table_field_3"]));
-				$qRelation[$qtrelationId]["join_field"]=$f;
-				$qRelation[$qtrelationId]["name"]=NameReplace($row["qtrelation_name"]);
-				$qRelation[$qtrelationId]["table_name"]=trim($row["table_name"]);
-				$qRelation[$qtrelationId]["catalog_path"]=trim($row["catalog_path"]);
-				$qRelation[$qtrelationId]["catalog_url"]=trim($row["catalog_url"]);
-				$qRelation[$qtrelationId]["relation_type"]=$row["qtrelationtype_id"];				
+				$qRelation[$relationId]["join_field"]=$f;
+				$qRelation[$relationId]["name"]=NameReplace($row["relation_name"]);
+				$qRelation[$relationId]["table_name"]=trim($row["table_name"]);
+				$qRelation[$relationId]["catalog_path"]=trim($row["catalog_path"]);
+				$qRelation[$relationId]["catalog_url"]=trim($row["catalog_url"]);
+				$qRelation[$relationId]["relation_type"]=$row["relationtype_id"];				
 			}
 		}	
 		
@@ -128,6 +127,10 @@ class gcFeature{
 		$stmt = $this->db->prepare($sqlFeature);
 		$stmt->execute(array($layerId));
 
+		//print_debug($sqlFeature,null,'template');
+		//print_debug($sqlFeature,null,'template');
+
+		
 		$res = $stmt->fetchAll();
 		if($stmt->rowCount() == 0){
 			$this->aFeature =false;
@@ -142,7 +145,13 @@ class gcFeature{
 		$aConnInfo = connInfofromPath($aFeature["catalog_path"]);
 		$aFeature["connection_string"] = $aConnInfo[0];
 		$aFeature["table_schema"] = $aConnInfo[1];
-		$aFeature["filePath"] = (substr(trim($aFeature["catalog_path"]),0,1)=='/')?trim($aFeature["catalog_path"]):trim($aFeature["base_path"]).trim($aFeature["catalog_path"]);
+		//Se inizia con / o con ../ no concateno con il basepath
+		if(substr(trim($aFeature["catalog_path"]),0,1)=='/' || substr(trim($aFeature["catalog_path"]),0,3)=='../'){
+			$aFeature["filePath"] = trim($aFeature["catalog_path"]);
+		}
+		else{
+			$aFeature["filePath"] = trim($aFeature["base_path"]).trim($aFeature["catalog_path"]);
+		}
 		$aFeature["relation"]= (isset($qRelation))?$qRelation:null;	
 		$aFeature["fields"] = (isset($qField))?$qField:null;
 		$aFeature["link"]=(isset($qLink))?array_values($qLink):array();
@@ -153,7 +162,7 @@ class gcFeature{
 		
 	}
 	
-	public function isEditable() {
+	function isEditable() {
 		if($this->aFeature['connection_type'] != 6) return false;
 		if($this->aFeature['queryable'] != 1) return false;
 		foreach($this->aFeature['fields'] as $k => $v) {
@@ -162,7 +171,7 @@ class gcFeature{
 		return false;
 	}
 	
-	public function getTinyOWSLayerParams() {
+	function getTinyOWSLayerParams() {
 		//TODO: così funziona solo per le definizioni DB_NAME/DB_SCHEMA
 		list($dbName, $dbSchema) = explode('/', $this->aFeature['catalog_path']);
 		return array(
@@ -174,24 +183,17 @@ class gcFeature{
 		);
 	}
 	
-	public function getLayerName() {
+	function getLayerName() {
 		return $this->aFeature['layer_name'];
 	}
 	
-	public function isPrivate() {
-		return $this->forcePrivate || ($this->aFeature['private'] > 0);
-	}
-    
-    // Used to force private layer in mapset is private
-    public function setPrivate($private) {
-        $this->forcePrivate = $private;
+	function isPrivate() {
+		return ($this->aFeature['private'] > 0);
 	}
 	
-	public function getLayerText($layergroupName, $layergroup){
+	function getLayerText($layergroupName,$layerTreeGroup,$maxScale,$minScale){
+		
 		if(!$this->aFeature) return false;
-        $maxScale = $layergroup['layergroup_maxscale'];
-        $minScale = $layergroup['layergroup_minscale'];
-        // FIXME: the following does not use the return value, can it be removed?
         $this->_getLayerData();
 		$this->aFeature['layergroup_name'] = $layergroupName;
 		$this->aSymbols = array();//Elenco dei simboli usati nelle classi della feature
@@ -204,9 +206,11 @@ class gcFeature{
 		$layText[] = "TYPE ". $aGCLayerType[$this->aFeature["layertype_id"]];	
 		$layText[] = "STATUS OFF";
 		$layText[] = "METADATA";
-		$layText[] = "\t\"wms_group_title\" \"".$layergroup['layergroup_title']."\"";
+		$layText[] = "\t\"wms_group_title\" \"$layergroupName\"";
+		$layText[] = "\t\"wms_layer_group\" \"$layerTreeGroup\"";
 		$layText[] = $this->_getMetadata();
 		$layText[] = "END";
+		
 		if(!empty($this->aFeature["data_srid"])){
 			$layText[] = "PROJECTION";
 			$layText[] = "\t\"init=epsg:".$this->aFeature["data_srid"]."\"";
@@ -234,9 +238,8 @@ class gcFeature{
 		
 		//classi:
 
-		$sql="select class_id,class_name,class_title,class_text,class_image,legendtype_id,keyimage,expression,class.maxscale,class.minscale,label_font,label_angle,label_color,label_outlinecolor,label_bgcolor,label_size,label_minsize,label_maxsize,label_position,label_priority,label_buffer,label_force,label_wrap,label_def,chr(symbol_ttf.ascii_code) as smbchar,symbol_ttf.font_name,symbol_ttf.position
-        from ".DB_SCHEMA.".class left join ".DB_SCHEMA.".symbol_ttf on (symbol_ttf.symbol_ttf_name=class.symbol_ttf_name and symbol_ttf.font_name=class.label_font) 
-		where layer_id=? order by class_order;";
+		$sql="select class_id,class_name,class_title,class_text,class_image,legendtype_id,keyimage,expression,class.maxscale,class.minscale,label_font,label_angle,label_color,label_outlinecolor,label_bgcolor,label_size,label_minsize,label_maxsize,label_position,label_priority,label_buffer,label_force,label_wrap,label_def
+        from ".DB_SCHEMA.".class where layer_id=? order by class_order;";
 		
 		print_debug($sql,null,'classi');
 
@@ -271,7 +274,7 @@ class gcFeature{
 		
 	}
 	
-	private function _getLayerConnection(&$layText){       
+	function _getLayerConnection(&$layText){       
 		if($this->aFeature["layertype_id"] == 10 && !$this->aFeature["tileindex"]){//TILERASTER
 			$layText[]="TILEINDEX \"".$this->aFeature["layer_name"].".TILEINDEX\"";
 			$layText[]="TILEITEM \"location\"";
@@ -298,6 +301,10 @@ class gcFeature{
 					$layText[]="CONNECTIONTYPE POSTGIS";
 					$layText[]="CONNECTION \"".$this->aFeature["connection_string"]."\"";
 					$sData = $this->_getLayerData();
+//					if($this->aFeature["fields"])
+//						$sData .= " USING UNIQUE gc_objid";
+//					elseif(!empty($this->aFeature["data_unique"]))
+//						$sData .= " USING UNIQUE ".$this->aFeature["data_unique"];
                     if (!empty($this->aFeature["data_unique"]))
                         $sData .= " USING UNIQUE gc_objid";
 					if(!empty($this->aFeature["data_srid"])) $sData .= " USING SRID=" . $this->aFeature["data_srid"];
@@ -348,7 +355,7 @@ class gcFeature{
 
 	}
 	
-	public function getTileIndexLayer(){
+	function getTileIndexLayer(){
 		$layText = array();
 		$layText[] = "LAYER";
 		$layText[] = "\tNAME \"".$this->aFeature["layer_name"].".TILEINDEX\"";
@@ -367,7 +374,7 @@ class gcFeature{
 	}
 		
 	//ritorna la querystring per la feature da usare nel tag DATA del mapfile
-	private function _getOracleLayerData() {
+	function _getOracleLayerData() {
 		$string = $this->aFeature['data_geom'].' FROM ';
         return $string . $this->aFeature['data'];
         // questo sotto non sembra funzionare
@@ -380,17 +387,19 @@ class gcFeature{
 		return $string.' (SELECT '.implode(', ', $fields).' FROM '.$this->aFeature['data'].') as foo';
 	}
 	
-    /**
-     * Construct the DATA statement for the mapfile, http://mapserver.org/mapfile/layer.html
-     * @return string
-     */
-	private function _getLayerData(){
-	
+	function _getLayerData(){
+        $query = GCAuthor::buildFeatureQuery($this->aFeature);
+        return 'gc_geom FROM ('.$query.') AS foo';
+        
+        //tutta questa parte è stata spostata in lib/gcapp.class.php, perchè condivisa con gcPgQuery per le interrogazioni avanzate
 		$aFeature = $this->aFeature;
+		$layerId=$aFeature["layer_id"];
 		$datalayerTable=$aFeature["data"];	
 		$datalayerGeom=$aFeature["data_geom"];			
 		$datalayerKey=$aFeature["data_unique"];	
+		$datalayerSRID=$aFeature["data_srid"];		
 		$datalayerSchema = $aFeature["table_schema"];
+		$datalayerFilter = $aFeature["data_filter"];
 
 		if($aFeature["tileindex"]) { //X TILERASTER
 			$location = "'".trim($aFeature["base_path"])."' || location as location";//value for location
@@ -404,17 +413,15 @@ class gcFeature{
 			$datalayerTable=$datalayerSchema.".".$datalayerTable . " AS ".DATALAYER_ALIAS_TABLE; 
 			
 		$joinString = $datalayerTable;
+		
+		
 		$fieldString = "*";
         $groupBy = '';
 
 		//Elenco dei campi definiti
 		if($aFeature["fields"]){
 			$fieldList = array();
-			
-            // collection of all fields which should be listed in the GROUP BY clause
-            // the primary key is certainly part of it
-            // with PostgreSQL 9.1 and later, the primary key would be enough.
-            $groupByFieldList = array(DATALAYER_ALIAS_TABLE.".".$datalayerKey);
+            $groupByFieldList = array();
 			
 			foreach($aFeature["fields"] as $idField=>$aField){
 
@@ -426,16 +433,21 @@ class gcFeature{
 					}else{
 						$aliasTable = DATALAYER_ALIAS_TABLE;
 					}
-                    $groupByFieldList[] = $aliasTable.'.'.$aField['field_name'];
+                    //$groupByFieldList[] = $aliasTable.'.'.$aField['field_name'];
 					
 					//Campi calcolati non metto tabella.campo
 					//if(strpos($aField["field_name"],'(')!==false)
 					//if(preg_match('|[(](.+)[)]|i',$aField["field_name"]) || strpos($aField["field_name"],"||"))
-					if($aField["formula"])
+					if($aField["formula"]){
 						$fieldName = $aField["formula"] . " AS " . $aField["field_name"];// . " AS " . strtolower(NameReplace($aField["field_title"]));
-					else
+						// **** Marco Giraudi (Old Snapo) 02/09/2013 - Correzione per group by con formule ****
+                    	$groupByFieldList[] = $aField['field_name'];
+					}
+					else{
 						$fieldName = $aliasTable . "." . $aField["field_name"];
-					
+						// **** Marco Giraudi (Old Snapo) 02/09/2013 - Correzione per group by con formule ****
+                    	$groupByFieldList[] = $aliasTable.'.'.$aField['field_name'];
+					}
 					$fieldList[] = $fieldName;
 					
 					/*
@@ -445,7 +457,10 @@ class gcFeature{
 						$fieldString = $fieldName;
 					$fieldList[] = $fieldString;
 					*/
+				
 				}
+	
+				
 			}
 			
 			//Elenco delle relazioni
@@ -456,20 +471,27 @@ class gcFeature{
 					
 					//TODO RELAZIONI 1-MOLTI IN GC3
 					if($rel["relation_type"] == 2){
-						//aggiungo un campo che ha come nome il nome della relazione, come formato l'id della relazione  e valore il valore di un campo di join -> se la tabella secondaria non ha corrispondenze il valore è vuoto
+                        continue; //Le relazioni 1n non vengon inserite nel mapfile
+                        
+						//aggiungo un campo che ha come nome il nome della relazione, come formato l'id della relazione  e valore il valore di un campo di join -> se la tabella secondaria non ha corrispondenze il valore � vuoto
 						
 						//$keyList = array();
 						//foreach($rel["join_field"] as $jF) $keyList[] = DATALAYER_ALIAS_TABLE.".".$jF[0];
 						//$fieldList[] = implode("||','||",$keyList)." as $relationAliasTable";
                         
-                        $groupBy = ' GROUP BY  '.implode(', ', $groupByFieldList).', '.$datalayerGeom;
-						$fieldList[] = ' count('.$relationAliasTable.'.'.$rel['join_field'][0][1].') as num_'.$idrel;
+						// **** Marco Giraudi (Old Snapo) 02/09/2013 - Nelle Join è necessario specificare che la dataLayerGeom è quella della tab. layer ****
+							//$groupBy = ' group by  '.implode(', ', $groupByFieldList).', ' . DATALAYER_ALIAS_TABLE . "." . $datalayerGeom;
+						// **** Marco Giraudi (Old Snapo) 02/09/2013 - Nelle Join è necessarioaggiungere il campo ID alla group by ****
+						//if (!array_search($datalayerKey, $groupByFieldList))
+							//$groupBy .= ', ' . DATALAYER_ALIAS_TABLE . "." . $datalayerKey;
+						//$fieldList[] = ' count('.$relationAliasTable.'.'.$rel['join_field'][0][1].') as num_'.$idrel;
                         
-                        if(!isset($this->aFeature['1n_count_fields'])) $this->aFeature['1n_count_fields'] = array();
-                        array_push($this->aFeature['1n_count_fields'], 'num_'.$idrel);
+                        //if(!isset($this->aFeature['1n_count_fields'])) $this->aFeature['1n_count_fields'] = array();
+                        //array_push($this->aFeature['1n_count_fields'], 'num_'.$idrel);
 
 					}
 
+						
                     $joinList=array();
                     for($i=0;$i<count($rel["join_field"]);$i++){
                         $joinList[]=DATALAYER_ALIAS_TABLE.".".$rel["join_field"][$i][0]."=".$relationAliasTable.".".$rel["join_field"][$i][1];
@@ -479,7 +501,11 @@ class gcFeature{
                     $joinFields=implode(" AND ",$joinList);
                     $joinString = "$joinString left join ".$rel["table_schema"].".". $rel["table_name"] ." AS ". $relationAliasTable ." ON (".$joinFields.")";	
                     //Se non sto visualizzando la secondaria e la relazione � 1 a molti genero il campo che dar� origine al link alla tabella
+
+
+					
 				}
+				
 			}
 			
 			$fieldString = implode(",",$fieldList);
@@ -487,17 +513,15 @@ class gcFeature{
 		
 		$datalayerTable = "gc_geom FROM (SELECT ".DATALAYER_ALIAS_TABLE.".".$datalayerKey." as gc_objid,".DATALAYER_ALIAS_TABLE.".".$datalayerGeom." as gc_geom, $fieldString FROM $joinString $groupBy) AS foo";
 		print_debug($datalayerTable,null,'datalayer');
-
 		return $datalayerTable;
 
 	}
 
-	private function _getMetadata(){
+	function _getMetadata(){
 		$agmlType = array(1=>"Point",2=>"Line",3=>"Polygon",4=>"Point");
 		$ageometryType = array("point" => "point","multipoint" => "multipoint","linestring" => "line","multilinestring" => "multiline","polygon" => "polygon" ,"multipolygon" => "multipolygon");
 		$metaText = '';
 		$aMeta["ows_title"] = empty($this->aFeature["layer_title"])?$this->aFeature["layer_name"]:$this->aFeature["layer_title"];
-		$aMeta["wms_title"] = empty($this->aFeature["layer_title"])?$this->aFeature["layer_name"]:$this->aFeature["layer_title"];
 	
 		if($this->srsList){
 			$aMeta["ows_extent"] = $this->srsList[$this->aFeature["data_srid"]]["extent"];
@@ -519,16 +543,15 @@ class gcFeature{
                         array_push($includeItems, $fieldName);
                     }
                 }
-				if(!empty($includeItems)) { 
-					$aMeta['ows_include_items'] = implode(',', $includeItems); 
-					$aMeta['gml_include_items'] = implode(',', $includeItems); 
-				} 				
+				if(!empty($includeItems)) {
+                    $aMeta['ows_include_items'] = implode(',', $includeItems);
+                    $aMeta['gml_include_items'] = implode(',', $includeItems);
+                }
 			} else {
 				$aMeta["ows_include_items"] = "all";
 				$aMeta["gml_include_items"] = "all";
 				$aMeta["wms_include_items"] = "all";
-				$aMeta["ows_exclude_items"] = $this->aFeature["data_geom"];
-				$aMeta["gml_exclude_items"] = $this->aFeature["data_geom"];	
+				$aMeta["ows_exclude_items"] = $this->aFeature["data_geom"];	
 				$aMeta["gml_featureid"] = $this->aFeature["data_unique"];
 			}
 			if(strpos($this->aFeature['metadata'], "gml_".$this->aFeature["data_geom"]."_type") === false) {
@@ -546,36 +569,29 @@ class gcFeature{
 		
 		}
 
-		if(!empty($this->aFeature['hidden']) && $this->aFeature["hidden"]==1) {
-            $aMeta["gc_hide_layer"] = '1';
-        }    
-		if($this->forcePrivate || 
-           (!empty($this->aFeature['private']) && $this->aFeature["private"]==1)) {
-            $aMeta["gc_private_layer"] = '1';
-        }
-		
-		$sql = "select af.filter_name, laf.required ".
-			" from ".DB_SCHEMA.".authfilter af inner join ".DB_SCHEMA.".layer_authfilter laf using(filter_id) ".
-			" where layer_id = ? ";
-		$stmt = $this->db->prepare($sql);
-		$stmt->execute(array($this->aFeature['layer_id']));
-		$n = 0;
-		while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			$aMeta['gc_authfilter_'.$n] = $row['filter_name'];
-			if(!empty($row['required'])) $aMeta['gc_authfilter_'.$n.'_required'] = 1;
-			$n++;
-		}
+		if(!empty($this->aFeature['hidden']) && $this->aFeature["hidden"]==1) $aMeta["gc_hide_layer"] = '1';
+		if(!empty($this->aFeature['private']) && $this->aFeature["private"]==1) $aMeta["gc_private_layer"] = '1';
 		
 		foreach ($aMeta as $key=>$value){
 			$metaText .= "\t\"$key\"\t\"$value\"\n\t";
 		}
 		if(!empty($this->aFeature["metadata"]))  $metaText .= "\t".str_replace("\n","\n\t\t",$this->aFeature["metadata"]);
-		//$metaText;
+		$metaText;
 		return $metaText;
 		
 	}
 	
-	private function _getClassText($aClass){
+	//NON SI USA PIU' SERVIVA A PRENDERE LE STRINGHE PROJ
+	function _getProjString(){
+		$projString = "\t\"".$this->aFeature["proj4text"];
+		if(strpos($projString, '+towgs84=') !== false) {
+			if(!empty($this->aFeature["param"])) $projString.=  "+towgs84=".$this->aFeature["param"];
+		}
+		$projString.="\"";
+		return $projString;
+	}
+	
+	function _getClassText($aClass){
 		
 		print_debug($aClass,null,'classi');
 		$clsText=array();
@@ -611,7 +627,7 @@ class gcFeature{
 			$clsText[]="\tFONT \"".$aClass["label_font"]."\"";		
 			if($aClass["label_angle"]) $clsText[]="\tANGLE ".$aClass["label_angle"];				
 			if($aClass["label_color"]) $clsText[]="\tCOLOR ".$aClass["label_color"];			
-			if($aClass["label_bgcolor"] && ms_GetVersionInt() < 60000) $clsText[]="\tBACKGROUNDCOLOR " .$aClass["label_bgcolor"];	
+			if($aClass["label_bgcolor"] && $this->msVersion=='5') $clsText[]="\tBACKGROUNDCOLOR " .$aClass["label_bgcolor"];	
 			if($aClass["label_outlinecolor"]) $clsText[]="\tOUTLINECOLOR " .$aClass["label_outlinecolor"];	
 			if($aClass["label_size"]) $clsText[]="\tSIZE ".$aClass["label_size"];	
 			if($aClass["label_minsize"]) $clsText[]="\tMINSIZE ".$aClass["label_minsize"];	
@@ -636,7 +652,6 @@ class gcFeature{
                 $res = $stmt->fetchAll();
 		for($i=0;$i<count($res);$i++){
 			$aStyle=$res[$i];
-			
 			if(!empty($this->i18n)) {
 				$aStyle = $this->i18n->translateRow($aStyle, 'style', $aStyle['style_id']);
 			}
@@ -649,8 +664,7 @@ class gcFeature{
 	}
 	
 	
-	private function _getStyleText($aStyle){
-		
+	function _getStyleText($aStyle){	
 		$styText=array();
 		if(!empty($aStyle["color"])) $styText[]="COLOR ".$aStyle["color"];
 		if(!empty($aStyle["symbol_name"])) $styText[]="SYMBOL \"".$aStyle["symbol_name"]."\"";
@@ -664,17 +678,16 @@ class gcFeature{
 			$styText[]="WIDTH ".$aStyle["width"];
 		else
 			$styText[]="WIDTH 1";//pach mapserver 5.6 non disegna un width di default
-		if(!empty($aStyle["pattern_def"]) && ms_GetVersionInt() >= 60000) $styText[]=$aStyle["pattern_def"];
+		if(!empty($aStyle["pattern_def"]) && $this->msVersion=='6') $styText[]=$aStyle["pattern_def"];
 		if(!empty($aStyle["minwidth"])) $styText[]="MINWIDTH ".$aStyle["minwidth"];
 		if(!empty($aStyle["maxwidth"])) $styText[]="MAXWIDTH ".$aStyle["maxwidth"];
 		if((!empty($aStyle["symbol_name"]))) $this->aSymbols[$aStyle["symbol_name"]]=$aStyle["symbol_name"];
 		if(!empty($aStyle["style_def"])) $styText[]=$aStyle["style_def"];
-		$styleText =  "\t".implode("\n\t\t\t",$styText);
-		return $styleText;
+		return "\t".implode("\n\t\t\t",$styText);	
 	}
 	
-	// SERVE A MARCO??????
-	public function getFeatureField($layerId=null){
+	// SERVE A MARCO?????? - viene usata in admin/rpc.php!
+	function getFeatureField($layerId=null){
 		$result=Array();
 		if ($layerId) $this->init($layerId);
 		$data=$this->_getLayerData();
@@ -684,6 +697,7 @@ class gcFeature{
 			$relationName=($field["relation"])?($aFeature["relation"][$field["relation"]]["table_name"]):($aFeature["data"]);
 			$relationSchema=($field["relation"])?($aFeature["relation"][$field["relation"]]["table_schema"]):($aFeature["table_schema"]);
 			$relationConnStr=($field["relation"])?($aFeature["relation"][$field["relation"]]["connection_string"]):($aFeature["connection_string"]);
+            $catalogPath = ($field['relation']) ? ($aFeature['relation'][$field['relation']]['catalog_path']) : ($this->aFeature['catalog_path']);
 			$result[$fieldId]=Array(
 				"id"=>$fieldId,
 				"name"=>$field["field_name"],
@@ -691,6 +705,7 @@ class gcFeature{
 				"table"=>$relationName,
 				"schema"=>$relationSchema,
 				"connection_string"=>$relationConnStr,
+				"catalog_path"=>$catalogPath,
 				"data_type"=>$field["data_type"]
 			);
 		}
@@ -698,10 +713,13 @@ class gcFeature{
 	}
 	
 
-	private function _getMetadataFieldDataType($typeId) {
+	function _getMetadataFieldDataType($typeId) {
 		if($typeId == 1 || $typeId == 3) return 'Character';
 		return false;
 	}
 	
+	
+
 }//end class
+
 ?>

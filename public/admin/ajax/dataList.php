@@ -7,9 +7,7 @@ $ajax = new GCAjax();
 
 $db = GCApp::getDB();
 
-if(empty($_REQUEST['catalog_id']) || !is_numeric($_REQUEST['catalog_id']) || $_REQUEST['catalog_id'] < 1) {
-	$ajax->error('catalog_id');
-}
+if(empty($_REQUEST['catalog_id']) || !is_numeric($_REQUEST['catalog_id']) || $_REQUEST['catalog_id'] < 1) $ajax->error('catalog_id');
 $catalogId = $_REQUEST['catalog_id'];
 
 $layerTypeId = null;
@@ -35,7 +33,12 @@ switch($catalogData["connection_type"]){
 			$sql="select base_path from ".DB_SCHEMA.".project where project_name=?";
 			$stmt = $db->prepare($sql);
 			$stmt->execute(array($_REQUEST['project']));
-			$projectPath = addFinalSlash($stmt->fetchColumn(0));
+            $projectPath = $stmt->fetchColumn(0);
+            if(!empty($projectPath)) {
+                $projectPath = addFinalSlash($projectPath);
+            } else {
+                $projectPath = addFinalSlash(ROOT_PATH);
+            }
 			$baseDir = $projectPath.$baseDir;	
 		}
 		$navDir = '';
@@ -46,7 +49,7 @@ switch($catalogData["connection_type"]){
 			$n++;
 		}
 		$sourceDir = $baseDir . $navDir;
-		
+
 		$directories = elenco_dir($sourceDir);
 		sort($directories);
 		foreach($directories as $directory) {
@@ -54,7 +57,7 @@ switch($catalogData["connection_type"]){
 			$result['data_objects'][$n] = array('directory'=>$navDir.addFinalSlash($directory));
 			$n++;
 		}
-		
+
 		$allowedExtensions = explode(",",strtolower(CATALOG_EXT));
 		foreach($allowedExtensions as $extension){
 			$files = elenco_file($sourceDir, $extension);
@@ -115,22 +118,24 @@ switch($catalogData["connection_type"]){
 			$stmt->execute(array(':schema'=>$schema, ':table'=>$_REQUEST['data'], ':column'=>$_REQUEST['data_geom']));
 			$dbColumnName = $stmt->fetchColumn(0);
 			if($dbColumnName != $_REQUEST['data_geom']) $ajax->error('Cannot find column '.$_REQUEST['data_geom'].' for table '.$schema.'.'.$_REQUEST['data']);
-			
+	
+	//INUTILE CALCOLARE EXTENT PER OGNI LAYER, USO QUELLA DEL MAPSET - VEDI PROBLEMA DI TABELLE DI GEOMETRIE NON COMPLETE IN FASE DI COSTRUZIONE DEL PROGETTO	
+	/*
 			$sql = 'select st_extent('.$dbColumnName.') from '.$schema.'.'.$dbTableName;
 			$box = $dataDb->query($sql)->fetchColumn(0);
 			$extent = array();
 			if(!empty($box)) {
 				$extent = GCUtils::parseBox($box);
 			}
-			
+	*/		
 			$sql = "SELECT column_name FROM information_schema.columns WHERE table_schema=:schema AND table_name=:table ORDER BY column_name;";
 			$stmt = $dataDb->prepare($sql);
 			$stmt->execute(array(':schema'=>$schema, ':table'=>$_REQUEST['data']));
 			while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 				$result['data'][$n] = array('pkey'=>$row['column_name']);
 				$result['data_objects'][$n] = array(
-					'data_unique' => $row['column_name'],
-					'data_extent' => implode(' ', $extent)
+					'data_unique' => $row['column_name']
+					//,'data_extent' => implode(' ', $extent)
 				);
 				$n++;
 			}

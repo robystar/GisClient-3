@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 */
 
+
 /* POSSO PASSARE DEI PARAMETRI PERSONALIZZATI :
 	LEGEND : 0/1 PER INDICARE CHE VOGLIO TUTTA L'IMMAGINE LEGENDA COMPLETA
 	TITLES : SE NELL'IMMAGINE METTO ANCHE I TITOLI
@@ -69,14 +70,7 @@ if($objRequest->getvaluebyname('layer')){
     }
 
     $dy=0;
-    foreach($layers as $oLayer) {
-        $private = $oLayer->getMetaData('gc_private_layer');
-        if(!empty($private)) {
-			if(!OwsHandler::checkLayer($objRequest->getvaluebyname('project'), $objRequest->getvaluebyname('service'), $oLayer->name)) {
-				continue;
-			}
-        }
-		
+    foreach($layers as $oLayer) {			
         if($oLayer->connectiontype == MS_WMS) {
             $url = $oLayer->connection;
             if(strpos($url, '?') === false) $url .= '?';
@@ -90,38 +84,33 @@ if($objRequest->getvaluebyname('layer')){
                 'layer'=>$oLayer->getMetaData('wms_name'),
                 'version'=>$oLayer->getMetaData('wms_server_version')
             );
-			
-            if (defined('GC_SESSION_NAME') && isset($_REQUEST['GC_SESSION_ID']) && $_REQUEST['GC_SESSION_ID'] == session_id()) {
-
-                $params['GC_SESSION_ID'] = session_id();
-            }
-            $urlWmsRequest = $url. http_build_query($params);
-			
             $options = array(
-                CURLOPT_URL => $urlWmsRequest, 
+                CURLOPT_URL => $url. http_build_query($params), 
                 CURLOPT_HEADER => 0, 
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_BINARYTRANSFER => true
             ); 
             $ch = curl_init(); 
             curl_setopt_array($ch, $options);
-            $result = curl_exec($ch);
-            if($result === false) {
-				throw new RunTimeException("Could not call $urlWmsRequest: " . curl_error($ch));
-            } else if($result) {
-				array_push($iconsArray, $result);
+            $result = @curl_exec($ch);
+            if($result) {
+                array_push($iconsArray, $result);
             }
             curl_close($ch); 
             continue;
         }
         
         $oLayer->set('sizeunits',MS_PIXELS);
+        #echo '<pre>'; var_export($oLayer);
         if(!$ruleLayerName || $ruleLayerName == $oLayer->name){
             $numCls = $oLayer->numclasses;
 
             //!!!!!!!!!!!!!!!!! DEFINIRE QUI IL FILTRO PER SCALE O IL FILTRO SULL'ESISTENZA DEGLI OGGETTI TANTO CARO A PAOLO (OCCORRE PASSARE EXTENT!!) !!!!!!
+            
             //!!!!!!!!!!!!! CICLARE SU TUTTI I LAYER E CREARE UNA LEGENDA UNICA  PER OGNI LEGENDA DI LAYER
+        
             //if((($oLayer->maxscale == -1) || ($scale <= $oLayer->maxscale)) && (($oLayer->minscale == -1) || ($scale >= $oLayer->minscale))){
+
 
             //verifica sulle classi
             $classToRemove=array();
@@ -140,8 +129,9 @@ if($objRequest->getvaluebyname('layer')){
                     //if((($oClass->maxscale == -1) || ($scale <= $oClass->maxscale)) && (($oClass->minscale == -1) || ($scale >= $oClass->minscale))){
                     
                     $char=$oClass->getTextString();
+                    //echo 'oclass '; var_export($char); echo "<br>\n";
                     //SE E' UNA CLASSE CON SIMBOLO TTF AGGIUNGO IL SIMBOLO
-                    if(strlen($char)==3){//USARE REGEXP, non ï¿½ detto che questa stringa sia lunga 3 !!!!
+                    if(strlen($char)==3){//USARE REGEXP, non è detto che questa stringa sia lunga 3 !!!!
                         $lbl=$oClass->label;
                         $idSymbol = ms_newSymbolObj($oMap, "v");
                         $oSymbol = $oMap->getSymbolObjectById($idSymbol);
@@ -162,16 +152,14 @@ if($objRequest->getvaluebyname('layer')){
                         $icoImg = $oClass->createLegendIcon($iconW,$iconH);
                         header("Content-type: image/png");
                         $icoImg->saveImage('');
-						if (ms_GetVersionInt() < 60000) {
-							$icoImg->free();
-						}
+                        $icoImg->free();
                         die();
                     }
                 }
             }
 
             if ($gcLegendText && !($oLayer->type==MS_LAYER_ANNOTATION || $oLayer->type==MS_LAYER_RASTER)) {//ESCLUDO SEMPRE I LAYERS DI TIPO ANNOTATIONE I LAYER SENZA CLASSI VISIBILI
-                //Elimino le classi non visibili: devo cercarle una ad una perchÃ¨ il removeclass rinumera le classi ogni volta
+                //Elimino le classi non visibili: devo cercarle una ad una perchè il removeclass rinumera le classi ogni volta
                 foreach($classToRemove as $className){
                     for ($clno=0; $clno < $oLayer->numclasses; $clno++) {
                         $oClass = $oLayer->getClass($clno);
@@ -194,11 +182,9 @@ if($objRequest->getvaluebyname('layer')){
                     ms_iogetStdoutBufferBytes();
                     ms_ioresethandlers();
                     $imageContent = ob_get_contents();
-                    ob_end_clean();
-					// FIXME: ha senso aggiungere anche se il centent Ã¨ vuoto?
-					// oppure non Ã¨ un'immagine?
                     //die($imageContent);
                     array_push($iconsArray, $imageContent);
+                    ob_end_clean();
                 }
                 
             } else {
@@ -212,9 +198,7 @@ if($objRequest->getvaluebyname('layer')){
                     $icoImg->saveImage('');
                     $imageContent = ob_get_contents();
                     ob_end_clean();
-					if (ms_GetVersionInt() < 60000) {
-                        $icoImg->free();
-                    }
+                    //$icoImg->free();
                     array_push($iconsArray, $imageContent);
                 }
             }
@@ -253,7 +237,8 @@ if(!$legend) {
 	}
 	header("Content-type: image/png");
 	imagepng($legendImage);
-	exit(0);
+	die();
+	
 }
 
 $oLayer=$oMap->getLayer($aLayersIndexes[0]);

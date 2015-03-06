@@ -1,13 +1,6 @@
 <?php
 require_once "../../config/config.php";
-require_once ROOT_PATH . 'lib/GCService.php';
-
-$gcService = GCService::instance();
-$gcService->startSession();
-
-if(!isset($_REQUEST['REQUEST']) || !in_array($_REQUEST['REQUEST'], array('GetMap', 'SaveLayer', 'DeleteLayer', 'GetLayers', 'PrintMap'))) {
-	die("REQUEST unknown");
-}
+if(!isset($_REQUEST['REQUEST']) || !in_array($_REQUEST['REQUEST'], array('GetMap', 'SaveLayer', 'DeleteLayer', 'GetLayers', 'PrintMap'))) die();
 
 if(!defined('REDLINE_TABLE') || !defined('REDLINE_SRID')) outputError('Missing config redline values');
 if(!defined('REDLINE_SCHEMA')) define('REDLINE_SCHEMA', 'public');
@@ -117,7 +110,7 @@ if($_REQUEST["REQUEST"] == "SaveLayer"){
 			':redline_id'=>$redlineId,
 			':redline_title'=>$redlineTitle,
 			':note'=>!empty($feature['properties']['note']) ? $feature['properties']['note'] : null,
-			':color'=>!empty($feature['properties']['color']) ? $feature['properties']['color'] : null
+			':color'=>!empty($feature['properties']['color']) ? $feature['properties']['color'] : REDLINE_COLOR
 		);
 		try {
 			$stmt->execute($params);
@@ -191,15 +184,14 @@ if($_REQUEST["REQUEST"] == "GetMap" && isset($_REQUEST["SERVICE"]) && $_REQUEST[
 		$oLay->set('type', $type['ms_type']);
 		$oLay->setConnectionType(MS_POSTGIS);
 		$oLay->set('connection', "user=".DB_USER." password=".DB_PWD." dbname=".DB_NAME." host=".DB_HOST." port=".DB_PORT);
-        $data = "the_geom from (select id, note, color, redline_id, ".$type['db_field']." as the_geom from ".REDLINE_SCHEMA.".".REDLINE_TABLE.") as foo using unique id using srid=".REDLINE_SRID;
-		$oLay->set('data', $data);
+		$oLay->set('data', $type['db_field']." from ".REDLINE_SCHEMA.".".REDLINE_TABLE." using unique id using srid=".REDLINE_SRID);
 		$oLay->setFilter("redline_id=".$_REQUEST['REDLINEID']);
 		$oLay->setProjection($layerProjString);
 		$oLay->set('sizeunits',MS_PIXELS);
 		$oClass = ms_newClassObj($oLay);
 		$oStyle = ms_newStyleObj($oClass);
 		$oStyle->setbinding(MS_STYLE_BINDING_OUTLINECOLOR, "color");	
-		$oStyle->set("width", 1);
+		$oStyle->set("width", 2);
 		$oLay->set('status', MS_ON);
 
 		//Annotazione
@@ -210,36 +202,41 @@ if($_REQUEST["REQUEST"] == "GetMap" && isset($_REQUEST["SERVICE"]) && $_REQUEST[
 		$oLay->setConnectionType(MS_POSTGIS);
 		$oLay->set('connection', "user=".DB_USER." password=".DB_PWD." dbname=".DB_NAME." host=".DB_HOST." port=".DB_PORT);
         $geom = !empty($type['label_function']) ? $type['label_function'].'('.$type['db_field'].')' : $type['db_field'];
-		$oLay->set('data', "the_geom from (select id, note, color, redline_id, $geom as the_geom from ".REDLINE_SCHEMA.".".REDLINE_TABLE.") as foo using unique id using srid=".REDLINE_SRID);
-
+        $data = "the_geom from (select id, note, color, redline_id, $geom as the_geom from ".REDLINE_SCHEMA.".".REDLINE_TABLE.") as foo using unique id using srid=".REDLINE_SRID;
+		$oLay->set('data', $data);
 		$oLay->setFilter("redline_id=".$_REQUEST['REDLINEID']);
 		$oLay->setProjection($layerProjString);
 		$oLay->set('sizeunits', MS_PIXELS);
 		$oLay->set('labelitem', "note");
 		
-		// TODO: already called some lines before. Can this be removed?
+        // Label properties
 		$oClass = ms_newClassObj($oLay);
-		// Label properties
-		$lbl = null;
-		if (ms_GetVersionInt() < 60200) {
-			$lbl = $oClass->label;
-		} else if($oClass->numlabels > 0) {
-			$lbl = $oClass->getLabel(0);
-		}
-		if ($lbl) {
-			$lbl->set("position", MS_UR);
-			$lbl->set("offsetx", 5);
-			$lbl->set("offsety", 10);
-			$lbl->set("font", REDLINE_FONT);
-			$lbl->set("type", MS_TRUETYPE);
-			$lbl->set("size", 14);
-			$lbl->setbinding(MS_LABEL_BINDING_COLOR, "color");
-		}
+        $oClass->updateFromString('CLASS
+            NAME "label_layer_class"
+            LABEL
+                TYPE TRUETYPE
+                FONT "'.REDLINE_FONT.'"
+                POSITION ur
+                OFFSET 5 5
+                SIZE 14
+                COLOR [color]
+            END
+        END');
+/*         $oLabel = new labelObj();
+        $oLabel->set('position', MS_UR);
+        $oLabel->set('offsetx', 5);
+        $oLabel->set('offsety', 5);
+        $oLabel->set('font', REDLINE_FONT);
+        $oLabel->type = MS_TRUETYPE;
+        $oLabel->size = 14;
+        $oLabel->setbinding(MS_LABEL_BINDING_COLOR, "color");
+        $oClass->addLabel($oLabel); */
 		$oLay->set('status', MS_ON);
 	}
 
-	ms_ResetErrorList();	
+	ms_ResetErrorList();
 	$oImage=$oMap->draw();
+    $oMap->save('debug.map');
 			
 	$error = ms_GetErrorObj();
 	if($error->code != MS_NOERR){

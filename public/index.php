@@ -19,55 +19,31 @@ if(!empty($_POST['username']) && !empty($_POST['password'])) {
 }
 
 $db = GCApp::getDB();
+if(!$db) die( "Impossibile connettersi al database");
+
 $dbSchema=DB_SCHEMA;
-$sql="SELECT distinct mapset_name,mapset_title,mapset_extent,project_name,template,project_title,private FROM $dbSchema.mapset INNER JOIN $dbSchema.project using(project_name) order by mapset_title,mapset_name;";
-$res = $db->query ($sql);
+$sql="SELECT distinct mapset_name,mapset_title,mapset_extent,project_name,template,project_title FROM $dbSchema.mapset INNER JOIN $dbSchema.project using(project_name) order by mapset_title,mapset_name;";
+//$db->sql_query ($sql);
+$ris = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
 $mapset=array();
-while($row = $res->fetch()){
-	$mapset[$row["project_name"]][]=Array("name"=>$row["mapset_name"],
-		"title"=>$row["mapset_title"],"template"=>$row["template"],
-		"extent"=>$row["mapset_extent"],'private'=>$row['private'],
-		'project_title'=>$row["project_title"]);
+for($i=0;$i<count($ris);$i++){
+	$mapset[$ris[$i]["project_name"]][]=Array("name"=>$ris[$i]["mapset_name"],"title"=>$ris[$i]["mapset_title"],"template"=>$ris[$i]["template"],"extent"=>$ris[$i]["mapset_extent"],'project_title'=>$ris[$i]["project_title"]);
 }
 
 $newTable = '';
 foreach($mapset as $key=>$map){
 	$newTable.='
 		<div>
-			<div class="tableHeader ui-widget ui-widget-header ui-corner-top">'.GCAuthor::t('project').': '.$map[0]['project_title'].'</div>
+			<div class="tableHeader ui-widget ui-widget-header ui-corner-top">Progetto: '.$map[0]['project_title'].'</div>
 			<table class="stiletabella">';
 				for($j=0;$j<count($map);$j++){
-					if(!isset($_SESSION["USERNAME"]) && $map[$j]['private'] == 1) {
-						continue;
-					}
-					
-					$publicLink = MAP_URL;
-					if(!empty($map[$j]['template'])){
-						$publicLink .= $map[$j]['template'];
-					}
-					$separator = strpos($publicLink, '?')?'&':'?';
-					$publicLink .= $separator.'mapset='.$map[$j]['name'];
-					
-					if (defined('PRIVATE_MAP_URL')) {
-						$privateLink = PRIVATE_MAP_URL;
-						if(!empty($map[$j]['template'])){
-							$privateLink .= $map[$j]['template'];
-						}
-						$separator = strpos($privateLink, '?')?'&':'?';
-						$privateLink .= $separator.'mapset='.$map[$j]['name'];
-					}
-					
+					$separator = '?';
+					if(strpos($map[$j]['template'], '?') !== false) $separator = '&';
+					$link = MAP_URL . (empty($map[$j]['template']) ? '' : $map[$j]['template']) . $separator . 'mapset='.$map[$j]['name'];
 					$newTable.='
-						<tr>';
-					if(empty($map[$j]['private'])) {
-						$newTable .= '<td width="1"><a href="'.$publicLink.'" class="view" target="_blank">Public map</a></td>';
-					} else {
-						$newTable .= '<td width="1"></td>';
-					}
-					if(!empty($_SESSION['USERNAME']) && defined('PRIVATE_MAP_URL')) $newTable .= '
-						<td width="1"><a href="'.$privateLink.'" class="private" target="_blank">Private map</a></td>';
-					$newTable .= '					
+						<tr>
+							<td width="1"><a href="'.$link.'" class="view">View</a></td>
 							<td class="data">'.$map[$j]["title"].'</td>
 						</tr>';
 				}
@@ -81,15 +57,11 @@ if(!$user->isAuthenticated()){
 	$logTitle="Login";
 	$logJs="javascript:return encript_pwd('password','frm_enter');";
 	$logout=0;
-	$btn="Login";
+	$btn="Entra";
 	$usrEnabled="";
 	$pwdEnabled="";
 }
 else{
-	if(!empty($_REQUEST['to'])) {
-		header('Location: '.$_REQUEST['to']);
-		die();
-	}
 	$logTitle="Logout";
 	$logJs="";
 	$logout=1;
@@ -97,8 +69,8 @@ else{
 	$usrEnabled="disabled";
 	$pwdEnabled="disabled";
 }
-?>
-<!DOCTYPE HTML>
+
+?><!DOCTYPE HTML>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<title>Maps</title>
@@ -118,6 +90,7 @@ else{
 			else{
 				img.src='admin/images/minus.gif';
 				$(id).style.display='none';
+			
 			}
 		}
 		$(document).ready(function() {
@@ -134,8 +107,7 @@ else{
 			/* ui buttons */
 			$('a.button , input[type|="button"] , input[type|="submit"]').button();
 			$('a.logout').button({icons: { primary: 'ui-icon-power' }});
-			$('.stiletabella a.view').button({icons: { primary: 'ui-icon-unlocked' },text: false});
-			$('.stiletabella a.private').button({icons: { primary: 'ui-icon-locked' },text: false});
+			$('.stiletabella a.view').button({icons: { primary: 'ui-icon-circle-zoomin' },text: false});
 			
 			/* ui alert & info */
 			$('span.alert , span.error').addClass('ui-state-error ui-corner-all').prepend('<span class="ui-icon ui-icon-alert" style="float: left; margin-right: .5em;"></span>');
@@ -146,10 +118,10 @@ else{
 <body>
 <div id="container">
 	<div class="ui-layout-north">
-		<?php include ADMIN_PATH."inc/inc.admin.page_header.php"; ?>
+		<?php include ROOT_PATH."public/admin/inc/inc.admin.page_header.php"; ?>
 	</div>
 	<div class="ui-layout-center">
-		<h2><?php echo GCAuthor::t('List of available Maps'); ?></h2>
+		<h2>Elenco delle mappe disponibili</h2>
 		<?php echo $newTable;?>
 	</div>
 	<div class="ui-layout-east" id="container_login2">
@@ -165,25 +137,21 @@ else{
 			</div>*/
 			?>
 			<div class="formRow">
-				<label><?php echo GCAuthor::t('Username'); ?>:</label>
+				<label>Nome Utente:</label>
 				<input name="username" type="text" id="username" value="" tabindex=1 <?php echo $usrEnabled?>>
 			</div>
 			<div class="formRow">
-				<label><?php echo GCAuthor::t('Password'); ?>:</label>
+				<label>Password:</label>
 				<input name="password" type="password" id="password" tabindex=2 <?php echo $pwdEnabled?>>
 			</div>
 			<div class="formRow">
 				<input type="submit" class="submit" name="azione" value="<?php echo $btn;?>" tabindex="3" onclick="<?php echo $logJs;?>">
 			</div>
+			
 		</form>
 	</div>
 	<div class="ui-layout-south">
-		GisClient<span class="color">Author </span>
-        <?php 
-        $sql="SELECT version_name FROM {$dbSchema}.vista_version ORDER BY version_id DESC LIMIT 1"; 
-        $res = $db->query($sql);
-        echo $res->fetchColumn(0);
-        ?>
+		GisClient<span class="color">Author</span> - Configurazione progetti GisClient - &copy; 2009 - 2015
 	</div>
 </div>
 </body>

@@ -2,6 +2,7 @@
 
 //print("<pre>");
 //print_r($_REQUEST);
+
 require_once ("../../../config/config.php");
 require_once (ADMIN_PATH."lib/functions.php");
 require_once (ADMIN_PATH."lib/gcSymbol.class.php");
@@ -42,6 +43,8 @@ elseif($table=="class"){
 	if(isset($filter)) $oSymbol->filter=implode (" AND ",$filter);
 }
 $oSymbol->createIcon();
+
+
 
 $smbList = $oSymbol->getList();
 

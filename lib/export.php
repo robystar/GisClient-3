@@ -17,17 +17,11 @@ class GCExport {
         $this->errorPath = DEBUG_DIR;
     }
     
-    public function getExportUrl() {
-        return $this->exportUrl;
-    }
-    
     public function export($tables, array $options = array()) {
         $defaultOptions = array(
             'name'=>'export',
             'extent'=>null,
-            'srid'=>null,
-            'add_to_zip'=>null,
-            'return_url'=>true
+            'srid'=>null
         );
         $options = array_merge($defaultOptions, $options);
         
@@ -57,23 +51,15 @@ class GCExport {
         		
 		$zip = new ZipArchive;
 		
-        if($options['add_to_zip']) {
-            $zipName = $options['add_to_zip'];
-            $openZipFlag = ZIPARCHIVE::CHECKCONS;
-        } else {
-            $zipName = $this->_getFileName($options['name']).'.zip';
-            $openZipFlag = ZIPARCHIVE::CREATE;
-        }
+        $zipName = $this->_getFileName($options['name']).'.zip';
         $zipPath = $this->exportPath.$zipName;
         
-		if(!$zip->open($zipPath, $openZipFlag)) throw new Exception('Error creating zip file');
+		if(!$zip->open($zipPath, ZIPARCHIVE::CREATE)) throw new Exception('Error creating zip file');
         foreach($files as $niceName => $realName) {
 			if(!$zip->addFile($realName, $niceName)) throw new Exception('Error adding file '.$realName.' to zip file');
 		}
 		if(!$zip->close()) throw new Exception('Error closing zip file');
-        
-        $return = $options['return_url'] ? $this->exportUrl.$zipName : $zipName;
-        return $return;
+        return $this->exportUrl.$zipName;
     }
     
     protected function _exportShp($dbName, $table, $schema = null, array $options = array()) {
@@ -95,8 +81,9 @@ class GCExport {
 		
 		exec($cmd, $pgsql2shpOutput, $retVal);
 		if($retVal != 0) {
+            $errorText = 'Postgres to SHP error: '.file_get_contents($errorFile);
 			file_put_contents($errorFile, $cmd, FILE_APPEND);
-            throw new Exception('Postgres to SHP error: ');
+            throw new Exception('Postgres to SHP error: '.file_get_contents($errorFile));
 		}
 		// charset related operations
         if(($dbfFile = fopen($filePath . '.dbf', "r+")) === FALSE) throw new Exception('Unable to edit dbf encoding');
@@ -163,6 +150,57 @@ class GCExportGml {
     }
     
     public function addLayer($layer) {
+        if(!defined('GC_DBT_CAD_GC_CODICI')) {
+            $gml = '<layer name="'.$layer['name'].'">';
+            $sql = 'select gid as gml_object_id, st_asgml(3, st_force_2d(the_geom)) as gml_geom from '.
+                $layer['schema'].'.'.$layer['table'];
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $gml .= '<r3sg:feature gml:id="'.$layer['name'].':'.$row['gml_object_id'].'">'.$row['gml_geom'].'</r3sg:feature>
+                ';
+            }
+            $gml .= '</layer>
+            ';
+        } else {
+            if(empty($this->gcCodici)) $this->gcCodici = json_decode(file_get_contents(GC_DBT_CAD_GC_CODICI), true);
+            $columns = GCApp::getColumns($this->db, $layer['schema'], $layer['table']);
+            $gcCodiceColIndex = array_search('gc_codice', $columns);
+            $hasGcCodice = ($gcCodiceColIndex !== false);
+            
+            $layers = array();
+            $sql = 'select gid as gml_object_id, st_asgml(3, st_force_2d(the_geom)) as gml_geom'.
+                ($hasGcCodice ? ', gc_codice':'').' from '.
+                $layer['schema'].'.'.$layer['table'];
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $layerName = $layer['name'];
+                if($hasGcCodice && isset($this->gcCodici['layers'][$row['gc_codice']])) $layerName = $this->gcCodici['layers'][$row['gc_codice']]['name'];
+                if(!isset($layers[$layerName])) $layers[$layerName] = array();
+                array_push($layers[$layerName], $row);
+                
+                if($hasGcCodice && isset($this->gcCodici['campiture'][$row['gc_codice']])) {
+                    if(!isset($layers[$this->gcCodici['campiture'][$row['gc_codice']]['name']])) $layers[$this->gcCodici['campiture'][$row['gc_codice']]['name']] = array();
+                    array_push($layers[$this->gcCodici['campiture'][$row['gc_codice']]['name']], $row);
+                }
+            }
+
+            $gml = '';
+            foreach($layers as $layerName => $rows) {
+                $gml .= '<layer name="'.$layerName.'">';
+                foreach($rows as $row) {
+                    $gml .= '<r3sg:feature gml:id="'.$layerName.':'.$row['gml_object_id'].'">'.$row['gml_geom'].'</r3sg:feature>
+                    ';
+                }
+                $gml .= '</layer>
+                ';
+            }
+        }
+        array_push($this->gmlLayers, $gml);
+    }
+    
+    public function _____addLayer($layer) {
 		$gml = '<layer name="'.$layer['name'].'">';
 		$sql = 'select gid as gml_object_id, st_asgml(3, st_force_2d(the_geom)) as gml_geom from '.
 			$layer['schema'].'.'.$layer['table'];
