@@ -59,7 +59,7 @@ OpenLayers.Control.PIPESelect = OpenLayers.Class(OpenLayers.Control, {
                    return;
                 }
              }
-            
+
             this.events.triggerEvent("beforeSelect", {
 
             });
@@ -322,11 +322,13 @@ OpenLayers.Control.PIPESelect = OpenLayers.Class(OpenLayers.Control, {
 				{
 					onSelect:function(feature){
 					//SULLA SELEZIONE DISATTIVO TUTTO (??)
-						if(feature.fid.indexOf('genova.ratraccia_v')!=-1) return false
-						ctrl.selectedPipeObject = feature;
-						highlightCtrl.deactivate();
-						selectControl.deactivate();
-						//ctrl.deactivate();
+                                            if(feature.fid.indexOf('genova.ratraccia_v')!=-1) return false
+                                            if (ctrl.map.popups.map( (el) => el.id ).indexOf("pipeselect-popup") < 0)
+                                                    ctrl.highlightCtrl.select(feature);
+                                            ctrl.selectedPipeObject = feature;
+                                            highlightCtrl.deactivate();
+                                            selectControl.deactivate();
+                                            //ctrl.deactivate();
 					}
 				}
 			);
