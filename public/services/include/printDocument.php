@@ -279,7 +279,8 @@ class printDocument {
         }
 
         if(!empty($project) && !empty($mapset)) {
-            $oMap = ms_newMapobj(ROOT_PATH.'map/'.$project.'/'.$mapset.'.map');
+            $mapFile = ROOT_PATH.'map/'.$project.'/'.$mapset.'.map';
+            $oMap = ms_newMapobj($mapFile);
             foreach($themes as &$theme) {
                 $theme['groups'] = array();
                 foreach($theme['layers'] as $layergroupName) {
@@ -298,6 +299,7 @@ class printDocument {
                             if(!empty($exclude)) continue;
                             array_push($group['layers'], array(
                                 'url'=>$layerName.'-'.$n,
+                                'wmsurl'=>"/cgi-bin/mapserv?map=".$mapFile."&FORMAT=image%2Fpng&LAYER=".$layerName."&SERVICE=WMS&VERSION=1.1.1&REQUEST=getlegendgraphic&WIDTH=24&HEIGHT=24&RULE=".$oClass->name,
                                 'title'=>$oClass->title
                             ));
                         }
@@ -314,7 +316,7 @@ class printDocument {
 
         if(empty($this->options['legend'])) return null;
         $this->buildLegendGraphicWmsList();
-
+        
         try {
             $legendImages = array();
             if(!is_array($this->options['legend'])) {
@@ -341,6 +343,7 @@ class printDocument {
                             // something went wrong
                             continue;
                         }
+                        
                         // TODO: add some check if the image is high enough to be sliced
                         $source = imagecreatefrompng($legendImages[$layer['url']]);
                         $dest = imagecreatetruecolor(24, 16);
@@ -358,6 +361,36 @@ class printDocument {
             throw $e;
         }
     }
+    
+    protected function buildLegendArrayRoby() {
+
+        if(empty($this->options['legend'])) return null;
+        $this->buildLegendGraphicWmsList();
+
+        try {
+            $legendImages = array();
+            if(!is_array($this->options['legend'])) {
+                $this->options['legend'] = $this->getLegendsFromMapfile();
+            }
+
+            foreach($this->options['legend']['themes'] as $theme) {
+                if(empty($theme['groups'])) continue;
+                $themeArray = array('id'=>$theme['id'],'title'=>$theme['title'],'groups'=>array());
+                foreach($theme['groups'] as $group) {
+                    $groupArray = array('id'=>$group['id'],'title'=>$group['title'],'layers'=>array());
+                    if(empty($group['layers'])) continue;
+                    foreach($group['layers'] as $key => $layer) {
+                        array_push($groupArray['layers'], array('title'=>$layer['title'],'img'=>$layer['wmsurl']));
+                    }
+                    array_push($themeArray['groups'], $groupArray);
+                }
+                array_push($this->legendArray, $themeArray);
+            }
+        } catch(Exception $e) {
+            throw $e;
+        }
+    }    
+    
     
     private function getLegendImageWMS($layer, $group, $tmpFileId, $sld = null) {
         $request = $this->getLegendGraphicRequest;
@@ -423,7 +456,8 @@ class printDocument {
     
     private function buildDOM($absoluteUrls = false) {
         $this->getMapImage();
-        $this->buildLegendArray();
+        //$this->buildLegendArray();
+        $this->buildLegendArrayRoby();
 
         $dom = new DOMDocument('1.0', 'utf-8');
         $dom->formatOutput = true;

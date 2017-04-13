@@ -581,6 +581,8 @@ class gcMap{
                     if ($layerOptions["type"] == "terrain")
                         $layerOptions["maxZoomLevel"] = 15;
 
+                    $aLayer["url"] = empty($row["url"]) ? $ows_url : $row["url"];
+
                     //Risetto i valori se impostati in author
                     if (isset($layerOptions["maxScale"])) {
                         $minRes = (floatval($layerOptions["maxScale"]) / $convFact);

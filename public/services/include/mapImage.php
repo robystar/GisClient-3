@@ -100,6 +100,8 @@ class mapImage {
     
     protected function buildWmsList() {
         foreach($this->tiles as $key => $tile) {
+            if (!isset($tile['url']))
+                $tile['url']='';
             if(is_array($tile['url']))
                 $tile['url']=$tile['url'][0];
             $url = trim($tile['url'], '?');
