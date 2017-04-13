@@ -47,7 +47,9 @@ class mapImage {
         $this->db = GCApp::getDB();
         $this->srid = $srid;
         $this->wmsMergeUrl = printDocument::addPrefixToRelativeUrl(PUBLIC_URL.$this->wmsMergeUrl);
-        
+        if (defined('PRINT_LOCAL_URL_PREFIX'))  
+            $this->wmsMergeUrl = str_replace(PRINT_RELATIVE_URL_PREFIX, PRINT_LOCAL_URL_PREFIX, $this->wmsMergeUrl); 
+                
         if($this->options['scale_mode'] == 'user') {
             if(empty($this->options['center']) || empty($this->options['scale'])) {
                 throw new Exception('Missing center or scale');
@@ -200,7 +202,6 @@ class mapImage {
             'GC_SESSION_ID' => session_id()
         ));
         session_write_close();
-
 
         if (false === ($ch = curl_init())) {
             throw new Exception("Could not init curl");
