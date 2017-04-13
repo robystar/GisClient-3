@@ -13,6 +13,7 @@ if (defined('DEBUG') && DEBUG) {
 	$logfile = DEBUG_DIR . "/mapfile.debug";
 }
 
+
 function getWmsParameters(array $layerParameters) {
 	$query = '';
 	if(!empty($layerParameters['PROJECT'])) $query .= 'PROJECT='.$layerParameters['PROJECT'];
@@ -137,6 +138,8 @@ foreach($mapConfig['layers'] as $key => $layer) {
 
 	if(isset($layer['URL'])) {
 		$url = $layer['URL'];
+        if (defined('PRINT_LOCAL_URL_PREFIX'))  
+            $url = str_replace(PRINT_RELATIVE_URL_PREFIX, PRINT_LOCAL_URL_PREFIX, $url);
 		if(substr($url, 0, -1) != '?') {
 			if(substr($url, 0, -1) != '&') {
 				if(!strpos($url, '?')) $url .= '?';
