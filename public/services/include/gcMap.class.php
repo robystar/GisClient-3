@@ -81,10 +81,10 @@ class gcMap{
         
         $gmapKey = defined('GMAPKEY')?"key=".GMAPKEY:'';
         $this->mapProviders = array(
-                        VMAP_LAYER_TYPE => "http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=6.3",
-                        YMAP_LAYER_TYPE => "http://api.maps.yahoo.com/ajaxymap?v=3.0&appid=euzuro-openlayers",
-                        OSM_LAYER_TYPE => "http://openstreetmap.org/openlayers/OpenStreetMap.js",
-                        GMAP_LAYER_TYPE => "http://maps.google.com/maps/api/js?$gmapKey");
+                        VMAP_LAYER_TYPE => "https://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=6.3",
+                        YMAP_LAYER_TYPE => "https://api.maps.yahoo.com/ajaxymap?v=3.0&appid=euzuro-openlayers",
+                        OSM_LAYER_TYPE => "https://openstreetmap.org/openlayers/OpenStreetMap.js",
+                        GMAP_LAYER_TYPE => "https://maps.google.com/maps/api/js?$gmapKey");
         
         $this->db = GCApp::getDB();
 
