@@ -82,7 +82,7 @@ class gcMapfile{
         if($keytype=="mapset") {    //GENERO IL MAPFILE PER IL MAPSET
                 $filter="mapset.mapset_name=:keyvalue";
                 $joinMapset="INNER JOIN ".DB_SCHEMA.".mapset using (project_name) INNER JOIN ".DB_SCHEMA.".mapset_layergroup using (mapset_name,layergroup_id)";
-                $fieldsMapset="mapset_layergroup.status as layergroup_status, mapset_name,mapset_title,mapset_extent,mapset_srid,mapset.maxscale as mapset_maxscale,mapset_def,";
+                $fieldsMapset="mapset_layergroup.status as layergroup_status, mapset_name,mapset_title,mapset_extent,mapset_srid,mapset.maxscale as mapset_maxscale,mapset_def,mapset.metadata, ";
                 $sqlParams['keyvalue'] = $keyvalue;
                 
                 $sql = 'select project_name from '.DB_SCHEMA.'.mapset where mapset_name=:mapset';
@@ -94,10 +94,10 @@ class gcMapfile{
             $filter="project.project_name=:keyvalue";
             if(defined('PROJECT_MAPFILE') && PROJECT_MAPFILE) {
                 $joinMapset="";
-                $fieldsMapset = '1 as layergroup_status, project_name as mapset_name, project_title as mapset_title, project_srid as mapset_srid, null as mapset_extent,';
+                $fieldsMapset = '1 as layergroup_status, project_name as mapset_name, project_title as mapset_title, project_srid as mapset_srid, null as mapset_extent, null as metadata, ';
             } else {
                 $joinMapset="INNER JOIN ".DB_SCHEMA.".mapset using (project_name) INNER JOIN ".DB_SCHEMA.".mapset_layergroup using (mapset_name,layergroup_id)";
-                $fieldsMapset="mapset_layergroup.status as layergroup_status, mapset_name,mapset_title,mapset_extent,mapset_srid,mapset.maxscale as mapset_maxscale,mapset_def,";               
+                $fieldsMapset="mapset_layergroup.status as layergroup_status, mapset_name,mapset_title,mapset_extent,mapset_srid,mapset.maxscale as mapset_maxscale,mapset_def,mapset.metadata, ";               
             }
             $sqlParams['keyvalue'] = $keyvalue;
             $projectName = $keyvalue;
@@ -184,7 +184,8 @@ class gcMapfile{
             $mapTitle[$mapName] = $aLayer["mapset_title"];
             $mapExtent[$mapName] = $aLayer["mapset_extent"];
             $mapMaxScale[$mapName] = floatval($aLayer["mapset_maxscale"])?min(floatval($aLayer["mapset_maxscale"]), $projectMaxScale):$projectMaxScale;
-
+            
+            $mapMetadata[$mapName] = $aLayer["metadata"];
             $oFeature->initFeature($aLayer["layer_id"]);
                         
             $oFeatureData = $oFeature->getFeatureData();
@@ -336,6 +337,8 @@ class gcMapfile{
             $this->mapsetMaxScale = $mapMaxScale[$mapName];
             $this->mapsetExtent = $projectExtent;
 
+            $this->mapsetMetadata = $mapMetadata[$mapName];
+
             //non ho fissato un restricted extent per il mapset, quindi prendo l'extent in funzione della scala massima
             if(empty($mapExtent[$mapName])){    
                 //EXTENT DEL MAPSET LO RICALCOLO SE NON POSSO USARE QUELLO DEL PROGETTO
@@ -434,7 +437,7 @@ class gcMapfile{
 
         //$outputFormat = file_get_contents (ROOT_PATH."config/mapfile.outputformats.inc");
         //$metadata_inc = file_get_contents (ROOT_PATH."config/mapfile.metadata.inc");
-        $metadata_inc = '';
+        $metadata_inc = $this->mapsetMetadata;
         //$legend_inc = file_get_contents (ROOT_PATH."config/mapfile.legend.inc");
         $legend_inc = $this->_getLegendSettings();
         //$legend_inc = '';

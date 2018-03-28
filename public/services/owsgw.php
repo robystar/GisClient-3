@@ -93,6 +93,35 @@ $url = currentPageURL();
 $onlineResource = $url.'?map='.$mapfile;
 $oMap->setMetaData("ows_onlineresource",$onlineResource);
 
+$mapsetFilter = $oMap->getMetaData("mapset_filter");
+
+if ($mapsetFilter){
+
+	$allLayers=$oMap->getAllLayerNames();
+	for ($j=0;$j<count($allLayers);$j++){
+
+		$oLayer =$oMap->getLayerByName($allLayers[$j]);
+		$flag=1;
+		//Filtri per la versione 7
+		$pp = $oLayer->getProcessing();
+		for ($i=0;$i<count($pp);$i++){
+			if(strpos($pp[$i],"_FILTER")>0){
+				$flag=0;
+				$pp[$i]=$pp[$i] . " AND " . $mapsetFilter;
+			}
+		}
+		if ($flag) $pp[]="NATIVE_FILTER=" . $mapsetFilter;
+
+		$oLayer->clearProcessing();
+		for ($i=0;$i<count($pp);$i++){
+			$oLayer->setProcessing($pp[$i]);
+		}
+	}
+
+}
+
+
+
 
 if(!empty($_REQUEST['GCFILTERS'])){
 
